@@ -1,0 +1,31 @@
+<!--
+error.html - Display a list of user annotation jobs with links to details for each job
+Copyright (C) 2015-2023 Vas Vasiliadis <vas@uchicago.edu>
+University of Chicago
+-->
+
+{%extends "base.html"%}
+
+{%block title%}{{ title }}{%endblock%}
+
+{%block body%}
+
+    {%include "header.html"%}
+
+    <div class="container">
+
+        <div class="page-header">
+            <h1>{{ title }}</h1>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <div class="well well-large alert-{{ alert_level }}">
+                    <span class="subheading">{{ message }}</span>
+                </div>
+            </div>
+        </div>
+
+    </div> <!-- container -->
+
+{%endblock%}

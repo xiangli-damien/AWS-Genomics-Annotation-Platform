@@ -1,0 +1,42 @@
+<!--
+subscribe.html - Get user's credit card details to send to Stripe service
+Copyright (C) 2015-2023 Vas Vasiliadis <vas@uchicago.edu>
+University of Chicago
+-->
+
+{% extends "base.html" %}
+
+{% block title %}Subscribe{% endblock %}
+
+{% block body %}
+
+    {% include "header.html" %}
+
+    <!-- Captures the user's credit card information and uses Javascript to send to Stripe -->
+    <div class="container">
+
+        <div class="page-header">
+            <h1>Subscribe</h1>
+        </div>
+
+        <p>You are subscribing to the GAS Premium plan. Please enter your credit card details to complete your subscription.</p><br />
+
+        <div class="form-wrapper">
+            <form role="form" action="{{url_for('subscribe')}}" method="post" id="subscribe_form" name="subscribe_submit">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+                <span class="payment-errors"></span>
+
+                <!-- GET USER CREDIT CARD DETAILS -->
+        
+                <br />
+
+                <div class="form-actions">
+                    <input id="bill-me" class="btn btn-lg btn-primary" type="submit" value="Subscribe (your credit card will not be billed)">
+                </div>
+            </form>
+        </div>
+    
+    </div> <!-- container -->
+
+{% endblock %}

@@ -1,0 +1,29 @@
+<!--
+view_log.html - Display details about a user's annotation job
+Copyright (C) 2015-2023 Vas Vasiliadis <vas@uchicago.edu>
+University of Chicago
+-->
+
+{% extends "base.html" %}
+
+{% block title %}Annotation Log{% endblock %}
+
+{% block body %}
+
+    {% include "header.html" %}
+
+    <div class="container">
+
+        <div class="page-header">
+            <h1>Annotation Log for Job {{ job_id }}</h1>
+        </div>
+
+        <!-- DISPLAY LOG FILE CONTENTS -->
+
+        <hr />
+    
+        <a href="{{ url_for('annotation_details', id=job_id) }}">&larr; back to annotation details</a>
+
+    </div> <!-- container -->
+
+{% endblock %}

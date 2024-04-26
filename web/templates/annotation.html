@@ -1,0 +1,29 @@
+<!--
+annotation.html - Display details about a user's annotation job
+Copyright (C) 2015-2023 Vas Vasiliadis <vas@uchicago.edu>
+University of Chicago
+-->
+
+{% extends "base.html" %}
+
+{% block title %}Annotation Details{% endblock %}
+
+{% block body %}
+    
+    {% include "header.html" %}
+
+    <div class="container">
+
+        <div class="page-header">
+            <h1>Annotation Details</h1>
+        </div>
+
+        <!-- DISPLAY ANNOTATION JOB DETAILS -->
+
+        <hr />
+
+        <a href="{{ url_for('annotations_list') }}">&larr; back to annotations list</a>
+
+    </div> <!-- container -->
+
+{% endblock %}

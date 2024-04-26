@@ -1,0 +1,33 @@
+<!--
+annotations.html - Display a list of user annotation jobs with links to details for each job
+Copyright (C) 2015-2023 Vas Vasiliadis <vas@uchicago.edu>
+University of Chicago
+-->
+
+{% extends "base.html" %}
+
+{% block title %}Annotations{% endblock %}
+
+{% block body %}
+
+    {% include "header.html" %}
+
+    <div class="container">
+
+        <div class="page-header">
+            <h1>My Annotations</h1>
+        </div>
+
+        <div class="row text-right">
+            <a href="{{ url_for('annotate') }}" title="Request New Annotation">
+                <button type="button" class="btn btn-link" aria-label="Request New Annotation">
+                    <i class="fa fa-plus fa-lg"></i> Request New Annotation
+                </button>
+            </a>
+        </div>
+
+        <!-- DISPLAY LIST OF ANNOTATION JOBS -->
+
+    </div> <!-- container -->
+
+{% endblock %}

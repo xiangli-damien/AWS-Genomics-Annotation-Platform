@@ -1,0 +1,27 @@
+<!--
+subscribe_confirm.html - Confirms Stripe account was created and user is now Premium
+Copyright (C) 2015-2023 Vas Vasiliadis <vas@uchicago.edu>
+University of Chicago
+-->
+
+{% extends "base.html" %}
+
+{% block title %}Subscribe{% endblock %}
+
+{% block body %}
+
+    {% include "header.html" %}
+
+    <div class="container">
+
+        <div class="page-header">
+            <h1>Subscription Succeeded</h1>
+        </div>
+
+        <p>Thank you for subscribing! You are now a Premium user and have full access to your data that was previously locked up within the GAS (unfairly, we know). Please <a href="{{ url_for('annotations_list') }}">click here</a> to view your annotation results.</p>
+
+        <p>Your subscriber account number is <strong>{{ stripe_id }}</strong>. Please make a note of this since the GAS service doesn't. Yes, we know we should, but at this stage we have your money and credit card details so we don't care much!</p>
+
+    </div> <!-- container -->
+
+{% endblock %}

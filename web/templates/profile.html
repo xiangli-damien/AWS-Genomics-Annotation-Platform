@@ -1,0 +1,66 @@
+<!--
+profile.html - Display user account details and link to upgrade (for Free users)
+Copyright (C) 2015-2023 Vas Vasiliadis <vas@uchicago.edu>
+University of Chicago
+-->
+{% extends "base.html" %}
+
+{% block title %}Profile{% endblock %}
+
+{% block body %}
+    
+    {% include "header.html" %}
+
+    <div class="container">
+
+        <div class="page-header">
+            <h1>Profile</h1>
+        </div>
+
+        <form role="form" action="{{ url_for('profile') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="row">
+                <div class="form-group col-md-5">
+                    <label for="primary_identity">Globus Identity ID</label>
+                    <input type="text" class="form-control input-lg" id="primary_identity" name="primary_identity" disabled="disabled" value="{{ session['primary_identity'] }}">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="form-group col-md-4">
+                    <label for="name">Name</label>
+                    <input type="text" class="form-control input-lg" id="name" name="name" placeholder="full name" required="required" tabindex="1" value="{{ session['name'] }}">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="form-group col-md-4">
+                    <label for="email">Email</label>
+                    <input type="email" class="form-control input-lg" id="email" name="email" placeholder="me@example.com" required="required" tabindex="2" value="{{ session['email'] }}">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="form-group col-md-5">
+                    <label for="institution">Institution/Department</label>
+                    <input type="text" class="form-control input-lg" id="institution" name="institution" required="required" tabindex="3" value="{{ session['institution'] }}">
+                </div>
+            </div>
+
+            <p><strong>Current Plan</strong>: 
+                {% if session['role'] == "free_user" %}
+                Free &middot; <a href="{{url_for('subscribe')}}">ugrade to Premium plan</a>
+                {% else %}
+                Premium &middot; <a href="{{url_for('unsubscribe')}}">downgrade to Free plan</a>
+                {% endif %}
+            </p>
+            <br />
+            
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">Save</button>&nbsp;&nbsp;<small><a href="{{url_for('make_me_premium')}}">just make me Premium</a></small>
+            </div>
+        </form>
+
+    </div> <!-- container -->
+
+{% endblock %}
