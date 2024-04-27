@@ -14,11 +14,12 @@ import json
 from datetime import datetime
 
 import boto3
+from botocore.config import Config 
+from botocore.exceptions import NoCredentialsError, ClientError, EndpointConnectionError
 from botocore.client import Config
 from boto3.dynamodb.conditions import Key
-from botocore.exceptions import ClientError
 
-from flask import abort, flash, redirect, render_template, request, session, url_for
+from flask import abort, flash, redirect, render_template, request, session, url_for, jsonify
 
 from app import app, db
 from decorators import authenticated, is_premium
@@ -35,31 +36,39 @@ but you can replace the code below with your own if you prefer.
 @app.route("/annotate", methods=["GET"])
 @authenticated
 def annotate():
-    # Open a connection to the S3 service
+    """
+    Generates a pre-signed POST request for S3 and renders a form for file uploading.
+    Redirects upon successful upload to process the file.
+    """
+    # Create an S3 client
     s3 = boto3.client(
         "s3",
         region_name=app.config["AWS_REGION_NAME"],
         config=Config(signature_version="s3v4"),
     )
-
+    # Generate a unique file ID and S3 key
+    # python uuid: https://docs.org/3/library/uuid.html
+    unique_file_id = str(uuid.uuid4())
+    # Extract the bucket name from the app configuration
     bucket_name = app.config["AWS_S3_INPUTS_BUCKET"]
+    # Define the urser ID
     user_id = session["primary_identity"]
-
     # Generate unique ID to be used as S3 key (name)
     key_name = (
         app.config["AWS_S3_KEY_PREFIX"]
         + user_id
         + "/"
-        + str(uuid.uuid4())
+        + unique_file_id
         + "~${filename}"
     )
 
     # Create the redirect URL
     redirect_url = str(request.url) + "/job"
-
-    # Define policy conditions
+    # Define the server-side encryption algorithm
     encryption = app.config["AWS_S3_ENCRYPTION"]
+    # Define policy conditions
     acl = app.config["AWS_S3_ACL"]
+    # Define the form fields and conditions
     fields = {
         "success_action_redirect": redirect_url,
         "x-amz-server-side-encryption": encryption,
@@ -73,8 +82,11 @@ def annotate():
         ["starts-with", "$csrf_token", ""],
     ]
 
-    # Generate the presigned POST call
     try:
+        # python boto3: https://boto3.amazonaws.com/v1/documentation/api/latest/index.html
+        # Reference: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html
+        # Reference: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
+        # Generate the presigned POST call
         presigned_post = s3.generate_presigned_post(
             Bucket=bucket_name,
             Key=key_name,
@@ -82,9 +94,26 @@ def annotate():
             Conditions=conditions,
             ExpiresIn=app.config["AWS_SIGNED_REQUEST_EXPIRATION"],
         )
+    except NoCredentialsError as e:
+        # Return an error message if we fail to generate the pre-signed POST request.
+        # NoCredentialsError reference: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
+        return jsonify(error=str(e)), 500
+    except EndpointConnectionError:
+        # Handle the case where we cannot connect to the S3 endpoint.
+        # EndpointConnectionError reference: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html
+        return jsonify({"code": 500, "status": "error", "message": "Cannot connect to the S3 endpoint."}), 500
     except ClientError as e:
-        app.logger.error(f"Unable to generate presigned URL for upload: {e}")
-        return abort(500)
+        # Handle other client errors
+        # ClientError reference: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/error-handling.html
+        # Reference: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/error-handling.html
+        if e.response['Error']['Code'] == 'InvalidAccessKeyId':
+            return jsonify({"error": "Invalid AWS Access Key ID"}), 500
+        elif e.response['Error']['Code'] == 'SignatureDoesNotMatch':
+            return jsonify({"error": "The request signature we calculated does not match"}), 500
+        else:
+            return jsonify({"error": f"AWS Client error: {str(e)}"}), 500
+    except Exception as e:
+        return jsonify({"code": 500, "status": "error", "message": f"Unexpected error: {str(e)}"}), 500
 
     # Render the upload form which will parse/submit the presigned POST
     return render_template(
@@ -104,22 +133,78 @@ homework assignments
 
 @app.route("/annotate/job", methods=["GET"])
 def create_annotation_job_request():
+    """
+    Handles redirection from S3 after file upload, persists job details in DynamoDB,
+    and notifies the annotation service.
+    """
 
+    # Get the region name from the app configuration
     region = app.config["AWS_REGION_NAME"]
+    dynamodb_table = app.config["AWS_DYNAMODB_ANNOTATIONS_TABLE"]
 
     # Parse redirect URL query parameters for S3 object info
     bucket_name = request.args.get("bucket")
     s3_key = request.args.get("key")
 
     # Extract the job ID from the S3 key
-    # Move your code here
+    job_id = s3_key.split('/')[2].split('~')[0]
 
-    # Persist job to database
-    # Move your code here...
+    # Extract the user ID from the S3 key
+    user_id = session.get('primary_identity', 'unknown')
 
-    # Send message to request queue
-    # Move your code here...
+    # Get the current timestamp
+    submit_time = int(time.time())
 
+    # input_file_name with out job_id
+    input_file_name = s3_key.split('/')[-1]
+    # only keep the filename without uuid for the response
+    pure_file_name = input_file_name.split('~')[-1] if '~' in input_file_name else input_file_name
+
+    # Prepare the job details
+    data = {
+        "job_id": job_id,
+        "user_id": user_id,
+        "input_file_name": pure_file_name,
+        "s3_inputs_bucket": bucket_name,
+        "s3_key_input_file": s3_key,
+        "submit_time": submit_time,
+        "job_status": "PENDING"
+    }
+
+    # Create a DynamoDB client
+    # Reference: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html
+    dynamodb = boto3.resource('dynamodb', region_name=region)
+    table = dynamodb.Table(dynamodb_table)
+
+    # Insert the job details into DynamoDB
+    # Reference: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html
+    # table.put_item reference: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html#DynamoDB.Table.put_item
+    try:
+        table.put_item(Item=data)
+    except ClientError as e:
+        return jsonify({"error": "DynamoDB ClientError", "message": str(e)}), 500
+    except Exception as e:
+        return jsonify({"error": "Unexpected error while updating DynamoDB", "message": str(e)}), 500
+    
+    # Create an SNS client
+    sns_client = boto3.client('sns', region_name=region)
+    
+    # Create an SNS client
+    try:
+        response = sns_client.publish(
+            TopicArn=app.config["AWS_SNS_JOB_REQUEST_TOPIC_A10"],
+            Message=json.dumps({"default": json.dumps(data)}),
+            MessageStructure='json'
+        )
+
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'AccessDenied':
+            return jsonify({"error": "Access denied to SNS", "message": str(e)}), 403
+        return jsonify({"error": "Failed to publish to SNS", "message": str(e)}), 500
+    except Exception as e:
+        return jsonify({"error": "Failed to publish job to SNS", "message": str(e)}), 500
+
+    # Send a notification to the annotator service
     return render_template("annotate_confirm.html", job_id=job_id)
 
 
@@ -130,9 +215,8 @@ def create_annotation_job_request():
 @app.route("/annotations", methods=["GET"])
 def annotations_list():
 
-    # Get list of annotations to display
-
     return render_template("annotations.html", annotations=None)
+
 
 
 """Display details of a specific annotation job

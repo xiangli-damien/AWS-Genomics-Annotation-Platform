@@ -6,3 +6,5 @@ Directory contents are as follows:
 * `/ann` - Annotator files
 * `/util` - Utility scripts/apps for notifications, archival, and restoration
 * `/aws` - AWS user data files
+
+git clone https://xiangli-damien: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@github.com/mpcs-cc/gas-xiangli-damien.git /home/ubuntu/gas
