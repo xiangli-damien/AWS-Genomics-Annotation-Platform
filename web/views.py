@@ -97,23 +97,31 @@ def annotate():
     except NoCredentialsError as e:
         # Return an error message if we fail to generate the pre-signed POST request.
         # NoCredentialsError reference: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
-        return jsonify(error=str(e)), 500
+        app.logger.error(f"Unable to generate presigned URL: {e}")
+        abort(500)
     except EndpointConnectionError:
         # Handle the case where we cannot connect to the S3 endpoint.
         # EndpointConnectionError reference: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html
-        return jsonify({"code": 500, "status": "error", "message": "Cannot connect to the S3 endpoint."}), 500
+        app.logger.error("Cannot connect to the S3 endpoint.")
+        abort(500)
     except ClientError as e:
-        # Handle other client errors
+        # Handle all client errors
         # ClientError reference: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/error-handling.html
         # Reference: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/error-handling.html
+        # if the error is due to invalid credentials
         if e.response['Error']['Code'] == 'InvalidAccessKeyId':
-            return jsonify({"error": "Invalid AWS Access Key ID"}), 500
+            app.logger.error("Invalid AWS Access Key ID")
+            abort(500)
+        # if the error is due to invalid secret key
         elif e.response['Error']['Code'] == 'SignatureDoesNotMatch':
-            return jsonify({"error": "The request signature we calculated does not match"}), 500
+            app.logger.error("The request signature we calculated does not match")
+            abort(500)
         else:
-            return jsonify({"error": f"AWS Client error: {str(e)}"}), 500
+            app.logger.error(f"Unexpected error: {e}")
+            abort(500)
     except Exception as e:
-        return jsonify({"code": 500, "status": "error", "message": f"Unexpected error: {str(e)}"}), 500
+        app.logger.error(f"Unexpected error: {e}")
+        abort(500)
 
     # Render the upload form which will parse/submit the presigned POST
     return render_template(
@@ -198,11 +206,16 @@ def create_annotation_job_request():
         )
 
     except ClientError as e:
+        # Handle the case where the SNS publish fails
         if e.response['Error']['Code'] == 'AccessDenied':
-            return jsonify({"error": "Access denied to SNS", "message": str(e)}), 403
-        return jsonify({"error": "Failed to publish to SNS", "message": str(e)}), 500
+            app.logger.error(f"Access denied to SNS: {e}")
+            abort(403)
+        else:
+            app.logger.error(f"Failed to publish job to SNS: {e}")
+            abort(500)
     except Exception as e:
-        return jsonify({"error": "Failed to publish job to SNS", "message": str(e)}), 500
+        app.logger.error(f"Unexpected error (failed to upload to SNS): {e}")
+        abort(500)
 
     # Send a notification to the annotator service
     return render_template("annotate_confirm.html", job_id=job_id)
